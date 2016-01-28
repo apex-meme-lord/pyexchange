@@ -116,17 +116,20 @@ def get_item(exchange_id, format=u"Default"):
   )
   return root
 
-def get_calendar_items(format=u"Default", calendar_id=u'calendar', start=None, end=None, max_entries=999999, delegate_for=None):
-  start = start.strftime(EXCHANGE_DATETIME_FORMAT)
-  end = end.strftime(EXCHANGE_DATETIME_FORMAT)
 
-  if calendar_id == u'calendar':
+def get_folder_items(format=u'Default', folder_id=u'root', delegate_for=None):
+  """
+  Helper function for fetching items of a generic folder.  Can be extended with
+  additional parameters for more robust searching.
+
+  """
+  if folder_id in DISTINGUISHED_IDS:
     if delegate_for is None:
-      target = M.ParentFolderIds(T.DistinguishedFolderId(Id=calendar_id))
+      target = M.ParentFolderIds(T.DistinguishedFolderId(Id=folder_id))
     else:
       target = M.ParentFolderIds(
         T.DistinguishedFolderId(
-          {'Id': 'calendar'},
+          {'Id': folder_id},
           T.Mailbox(T.EmailAddress(delegate_for))
         )
       )
@@ -138,15 +141,80 @@ def get_calendar_items(format=u"Default", calendar_id=u'calendar', start=None, e
     M.ItemShape(
       T.BaseShape(format)
     ),
+    target
+  )
+
+  return root
+
+
+def get_calendar_items(format=u"Default", calendar_id=u'calendar', start=None, end=None, max_entries=999999, delegate_for=None):
+  """
+  Fetches items from the calendar folder.  Extends the default body with
+  a CalendarView container for the result set.
+
+  """
+
+  start = start.strftime(EXCHANGE_DATETIME_FORMAT)
+  end = end.strftime(EXCHANGE_DATETIME_FORMAT)
+
+  base = get_folder_items(format, calendar_id, delegate_for)
+  base.insert(
+    -1,
     M.CalendarView({
       u'MaxEntriesReturned': _unicode(max_entries),
       u'StartDate': start,
       u'EndDate': end,
     }),
-    target,
   )
 
-  return root
+  return base
+
+
+def get_message_items(format=u'AllProperties', folder_id=u'root', offset=0, base_point=u'Beginning', max_entries=999999, delegate_for=None):
+  """
+  Fetches message items from the specified folder.  Response body will include
+  the current offset, total, and a boolean indicating completion.
+
+  """
+  base = get_folder_items(format, folder_id, delegate_for)
+
+  # include message subject
+  base.xpath(u'//m:FindItem/m:ItemShape', namespaces=NAMESPACES)[0].append(
+    T.AdditionalProperties(
+      T.FieldURI({
+        'FieldURI': 'item:Subject'
+      })
+    )
+  )
+
+  # shove into a paged view
+  base.insert(
+    -1,
+    M.IndexedPageItemView({
+      u'MaxEntriesReturned': _unicode(max_entries),
+      u'Offset': _unicode(offset),
+      u'BasePoint': base_point,
+    })
+  )
+
+  # order by importance
+  base.insert(
+    -1,
+    M.GroupBy(
+      {u'Order': 'Ascending'},
+      T.FieldURI(
+        {u'FieldURI': 'item:Importance'}
+      ),
+      T.AggregateOn(
+        {u'Aggregate': 'Maximum'},
+        T.FieldURI({
+          u'FieldURI': 'item:Subject'
+        })
+      )
+    )
+  )
+
+  return base
 
 
 def get_master(exchange_id, format=u"Default"):
@@ -436,17 +504,82 @@ def delete_event(event):
     return root
 
 
-def move_event(event, folder_id):
+def get_message(exchange_id, format=u'AllProperties'):
+  """
+  Extends the get_item() request with the attachment ids for
+  email messages.
 
+  """
+  base = get_item(exchange_id, format)
+  base.xpath(u'//m:GetItem/m:ItemShape', namespaces=NAMESPACES)[0].append(
+    T.AdditionalProperties(
+      T.FieldURI(FieldURI='item:Attachments')
+    )
+  )
+  return base
+
+
+def create_message(message):
+  folder_id = (T.DistinguishedFolderId(Id=message.parent_folder_id) if message.parent_folder_id in DISTINGUISHED_IDS
+               else T.FolderId(Id=message.parent_folder_id))
+
+  to_recipient_tag = T.ToRecipients()
+  if message.to_recipients:
+    for mailbox in message.to_recipients:
+      to_recipient_tag.append(
+        T.Mailbox(
+          T.EmailAddress(mailbox.email_address)
+        )
+      )
+
+  root = M.CreateItem(
+    M.SavedItemFolderId(folder_id),
+    M.Items(
+      T.Message(
+        T.Subject(message.subject or u''),
+        T.Body(message.body.content or u'', BodyType=message.body.type),
+        to_recipient_tag,
+        T.IsRead(str(message.is_read).lower())
+      )
+    ),
+    MessageDisposition='SaveOnly'
+  )
+  return root
+
+
+def delete_message(message):
+  pass
+
+
+def get_attachment(attachment_id):
+  """
+  Fetches the attachment with the given id.
+
+  """
+  root = M.GetAttachment(
+    M.AttachmentIds(
+      T.AttachmentId(
+        {'Id': attachment_id}
+      )
+    )
+  )
+  return root
+
+
+def move_item(item, folder_id):
   id = T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS else T.FolderId(Id=folder_id)
 
   root = M.MoveItem(
     M.ToFolderId(id),
     M.ItemIds(
-        T.ItemId(Id=event.id, ChangeKey=event.change_key)
+        T.ItemId(Id=item.id, ChangeKey=item.change_key)
     )
   )
   return root
+
+
+def move_event(event, folder_id):
+  return move_item(event, folder_id)
 
 
 def move_folder(folder, folder_id):

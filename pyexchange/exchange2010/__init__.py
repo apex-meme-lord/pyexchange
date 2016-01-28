@@ -12,6 +12,7 @@ from ..base.soap import ExchangeServiceSOAP
 from ..exceptions import FailedExchangeException, ExchangeStaleChangeKeyException, ExchangeItemNotFoundException, ExchangeInternalServerTransientErrorException, ExchangeIrresolvableConflictException, InvalidEventType
 from ..compat import BASESTRING_TYPES
 
+from .mail import Exchange2010MessageService
 from . import soap_request
 
 from lxml import etree
@@ -28,7 +29,7 @@ class Exchange2010Service(ExchangeServiceSOAP):
     return Exchange2010CalendarService(service=self, calendar_id=id)
 
   def mail(self):
-    raise NotImplementedError("Sorry - nothin' here. Feel like adding it? :)")
+    return Exchange2010MessageService(service=self)
 
   def contacts(self):
     raise NotImplementedError("Sorry - nothin' here. Feel like adding it? :)")
