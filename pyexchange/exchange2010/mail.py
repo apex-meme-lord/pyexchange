@@ -38,9 +38,7 @@ class Exchange2010Message(BaseExchangeMessage):
     
     items = response.xpath(u'//m:GetItemResponseMessage/m:Items/t:Message', namespaces=soap_request.NAMESPACES)  
 
-    body_content, body_type = self._parse_body_content_and_type(items[0])
-    self.body = body_content
-    self.body.type = body_type
+    self.body = self._parse_body_content_and_type(items[0])
 
     return self._init_from_xml(items[0])
 
@@ -82,8 +80,8 @@ class Exchange2010Message(BaseExchangeMessage):
     if body_elements:
       body = body_elements[0]
       body.getparent().remove(body)
-      return body.text, body.get(u'BodyType')
-    return None, None
+      return body
+    return None
 
 
   def _parse_response_for_other_props(self, xml):
@@ -113,8 +111,13 @@ class Exchange2010Message(BaseExchangeMessage):
     return self.service._xpath_to_dict(element=xml, property_map=property_map, namespace_map=soap_request.NAMESPACES)
 
   def _fetch_message_body(self):
-    body = soap_request.get_message(format=u'AllProperties', exchange_id=self.id)
-    response = self.service.send(body)
+    request = soap_request.get_message(exchange_id=self.id, format=u'AllProperties')
+    response = self.service.send(request)
+
+    items = response.xpath(u'//m:GetItemResponseMessage/m:Items/t:Message', namespaces=soap_request.NAMESPACES)  
+
+    self.body = self._parse_body_content_and_type(items[0])
+    return self
 
   def create(self):
     pass
@@ -126,7 +129,8 @@ class Exchange2010Message(BaseExchangeMessage):
     pass
 
   def validate(self):
-    pass
+    if self.body is None:
+      pass
 
   def send(self):
     pass

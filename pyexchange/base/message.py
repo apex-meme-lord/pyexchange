@@ -213,18 +213,10 @@ class BaseExchangeMessage(object):
     """ **Read-only.** The internal id Exchange uses to refer to this message. """
     return self._id
 
-  @id.setter
-  def id(self, value):
-    self._id = value
-
   @property
   def change_key(self):
     """ **Read-only.** When you change an message, Exchange makes you pass a change key to prevent overwriting a previous version. """
     return self._change_key
-
-  @change_key.setter
-  def change_key(self, value):
-    self._change_key = value
 
   @property
   def parent_folder_id(self):
@@ -252,11 +244,18 @@ class BaseExchangeMessage(object):
   
   @property
   def body(self):
+    """Lazy-loaded message body"""
+    if self._body is None and self.id:
+      self._fetch_message_body()
     return self._body
 
   @body.setter
   def body(self, value):
-    self._body = ExchangeMessageBody(value, u'Text')
+    if isinstance(value, str):
+      self._body = ExchangeMessageBody(value, u'Text')
+    elif hasattr(value, 'text') and hasattr(value, 'attrib'):
+      # duck-typing magic
+      self._body = ExchangeMessageBody(value.text, value.attrib['BodyType'])
 
   @property
   def to_recipients(self):

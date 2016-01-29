@@ -511,7 +511,11 @@ def get_message(exchange_id, format=u'AllProperties'):
 
   """
   base = get_item(exchange_id, format)
-  base.xpath(u'//m:GetItem/m:ItemShape', namespaces=NAMESPACES)[0].append(
+  item_shape = base.xpath(u'//m:GetItem/m:ItemShape', namespaces=NAMESPACES)[0]
+  item_shape.append(
+    T.IncludeMimeContent('true')
+  )
+  item_shape.append(
     T.AdditionalProperties(
       T.FieldURI(FieldURI='item:Attachments')
     )
