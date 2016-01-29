@@ -39,25 +39,25 @@ class ExchangeMailboxTargetList(object):
     raise NotImplementedError
 
   def __len__(self):
-    return len(self._messages)
+    return len(self._mailboxes)
 
   def __getitem__(self, key):
-    return self._messages[key]
+    return self._mailboxes[key]
 
   def __setitem__(self, key, value):
-    self._messages[key] = value
+    self._mailboxes[key] = value
 
   def __delitem__(self, key):
-    del self._messages[key]
+    del self._mailboxes[key]
 
   def __iter__(self):
-    return self._messages.__iter__()
+    return self._mailboxes.__iter__()
 
   def __reversed__(self):
-    return self._messages.__reversed__()
+    return self._mailboxes.__reversed__()
 
   def __contains__(self, item):
-    return self._messages.__contains__(item)
+    return self._mailboxes.__contains__(item)
 
 
 class BaseExchangeMessageService(object):
@@ -71,7 +71,7 @@ class BaseExchangeMessageService(object):
   def get_message(self, id):
     raise NotImplementedError
 
-  def create_message(self, **kwargs):
+  def new_message(self, **kwargs):
     raise NotImplementedError
 
 
@@ -175,10 +175,11 @@ class BaseExchangeMessage(object):
 
     if xml is not None:
       self._init_from_xml(xml)
-    elif id is None:
-      self._update_properties(kwargs)
-    else:
+    elif id is not None:
       self._init_from_service(id)
+    else:
+      self._update_properties(kwargs)
+
 
   def _init_from_xml(self, xml):
     raise NotImplementedError

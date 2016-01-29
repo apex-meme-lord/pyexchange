@@ -72,3 +72,21 @@ class ExchangeNTLMAuthConnection(ExchangeBaseConnection):
     log.debug(u'Got body: {body}'.format(body=response.text))
 
     return response.text
+
+
+class ExchangeBasicAuthConnection(ExchangeNTLMAuthConnection):
+  """
+  Connection to Exchange that uses Basic authentication.  
+
+  Used for Exchange Online.
+  """
+
+  def build_password_manager(self):
+    if self.password_manager:
+      return self.password_manager
+
+    log.debug(u'Constructing password manager')
+
+    self.password_manager = requests.auth.HTTPBasicAuth(self.username, self.password)
+
+    return self.password_manager

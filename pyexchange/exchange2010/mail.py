@@ -24,8 +24,8 @@ class Exchange2010MessageService(BaseExchangeMessageService):
   def get_message(self, id):
     return Exchange2010Message(service=self.service, id=id)
 
-  def create_message(self, **kwargs):
-    raise NotImplementedError
+  def new_message(self, **kwargs):
+    return Exchange2010Message(service=self.service, **kwargs)
 
 
 class Exchange2010Message(BaseExchangeMessage):
