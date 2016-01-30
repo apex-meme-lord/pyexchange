@@ -28,6 +28,27 @@ class Exchange2010MessageService(BaseExchangeMessageService):
     return Exchange2010Message(service=self.service, **kwargs)
 
 
+class Exchange2010MailboxTarget(ExchangeMailboxTarget):
+
+  def _init_from_xml(self, xml):
+    self.name, self.email_address, self.routing_type = self._parse_info_from_mailbox_xml(xml)
+
+  def _init_from_props(self, name, email_address, routing_type):
+    self.name = name
+    self.email_address = email_address
+    self.routing_type = routing_type
+
+  def _parse_info_from_mailbox_xml(self, xml):
+    return [tag.text for tag in xml.getchildren()]
+
+
+class Exchange2010MailboxTargetList(ExchangeMailboxTargetList):
+
+  def _parse_mailbox_from_xml(self, xml):
+    for mailbox in xml.getchildren():
+      self._mailboxes.append(Exchange2010MailboxTarget(xml=mailbox))
+
+
 class Exchange2010Message(BaseExchangeMessage):
   
   def _init_from_service(self, id):
@@ -39,6 +60,7 @@ class Exchange2010Message(BaseExchangeMessage):
     items = response.xpath(u'//m:GetItemResponseMessage/m:Items/t:Message', namespaces=soap_request.NAMESPACES)  
 
     self.body = self._parse_body_content_and_type(items[0])
+    self.to_recipients = self._parse_to_recipients(items[0])
 
     return self._init_from_xml(items[0])
 
@@ -83,6 +105,14 @@ class Exchange2010Message(BaseExchangeMessage):
       return body
     return None
 
+  def _parse_to_recipients(self, xml):
+    to_recipients = xml.xpath(u'//t:Message/t:ToRecipients', namespaces=soap_request.NAMESPACES)
+
+    if to_recipients:
+      mailboxes = to_recipients[0]
+      mailboxes.getparent().remove(mailboxes)
+      return mailboxes
+    return None
 
   def _parse_response_for_other_props(self, xml):
 
@@ -110,15 +140,6 @@ class Exchange2010Message(BaseExchangeMessage):
 
     return self.service._xpath_to_dict(element=xml, property_map=property_map, namespace_map=soap_request.NAMESPACES)
 
-  def _fetch_message_body(self):
-    request = soap_request.get_message(exchange_id=self.id, format=u'AllProperties')
-    response = self.service.send(request)
-
-    items = response.xpath(u'//m:GetItemResponseMessage/m:Items/t:Message', namespaces=soap_request.NAMESPACES)  
-
-    self.body = self._parse_body_content_and_type(items[0])
-    return self
-
   def create(self):
     pass
 
@@ -140,6 +161,34 @@ class Exchange2010Message(BaseExchangeMessage):
 
   def move(self, folder_id):
     pass
+
+  @property
+  def to_recipients(self):
+    if self._to_recipients is None and self.id is not None:
+      self._fetch_message_to_recipients()
+    return self._to_recipients
+
+  @to_recipients.setter
+  def to_recipients(self, value):
+      self._to_recipients = Exchange2010MailboxTargetList(xml=value)
+
+  def _fetch_message_body(self):
+    request = soap_request.get_message(exchange_id=self.id, format=u'AllProperties')
+    response = self.service.send(request)
+
+    items = response.xpath(u'//m:GetItemResponseMessage/m:Items/t:Message', namespaces=soap_request.NAMESPACES)  
+
+    self.body = self._parse_body_content_and_type(items[0])
+    return self
+
+  def _fetch_message_to_recipients(self):
+    request = soap_request.get_message(exchange_id=self.id, format=u'AllProperties')
+    response = self.service.send(request)
+
+    items = response.xpath(u'//m:GetItemResponseMessage/m:Items/t:Message', namespaces=soap_request.NAMESPACES)  
+
+    self.to_recipients = self._parse_to_recipients(items[0])
+    return self
 
 
 class Exchange2010MessageList(BaseExchangeMessageList):

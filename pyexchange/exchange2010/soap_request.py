@@ -511,11 +511,7 @@ def get_message(exchange_id, format=u'AllProperties'):
 
   """
   base = get_item(exchange_id, format)
-  item_shape = base.xpath(u'//m:GetItem/m:ItemShape', namespaces=NAMESPACES)[0]
-  item_shape.append(
-    T.IncludeMimeContent('true')
-  )
-  item_shape.append(
+  base.xpath(u'//m:GetItem/m:ItemShape', namespaces=NAMESPACES)[0].append(
     T.AdditionalProperties(
       T.FieldURI(FieldURI='item:Attachments')
     )
@@ -527,14 +523,12 @@ def create_message(message):
   folder_id = (T.DistinguishedFolderId(Id=message.parent_folder_id) if message.parent_folder_id in DISTINGUISHED_IDS
                else T.FolderId(Id=message.parent_folder_id))
 
-  to_recipient_tag = T.ToRecipients()
-  if message.to_recipients:
-    for mailbox in message.to_recipients:
-      to_recipient_tag.append(
-        T.Mailbox(
-          T.EmailAddress(mailbox.email_address)
-        )
-      )
+  to_recipient_mailboxes = [
+    T.Mailbox(
+      T.EmailAddress(mailbox.email_address)
+    )
+    for mailbox in message.to_recipients
+  ]
 
   root = M.CreateItem(
     M.SavedItemFolderId(folder_id),
@@ -542,7 +536,9 @@ def create_message(message):
       T.Message(
         T.Subject(message.subject or u''),
         T.Body(message.body.content or u'', BodyType=message.body.type),
-        to_recipient_tag,
+        T.ToRecipients(
+          *to_recipient_mailboxes
+        ),
         T.IsRead(str(message.is_read).lower())
       )
     ),

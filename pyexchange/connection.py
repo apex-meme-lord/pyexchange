@@ -90,3 +90,20 @@ class ExchangeBasicAuthConnection(ExchangeNTLMAuthConnection):
     self.password_manager = requests.auth.HTTPBasicAuth(self.username, self.password)
 
     return self.password_manager
+
+  def send(self, body, headers=None, retries=2, timeout=30, encoding=u"utf-8"):
+    if not self.session:
+      self.session = self.build_session()
+
+    try:
+      response = self.session.post(self.url, data=body, headers=headers)
+      response.raise_for_status()
+    except requests.exceptions.RequestException as err:
+      # log.debug(err.response.content)
+      raise FailedExchangeException(u'Unable to connect to Exchange: %s' % err)
+
+    log.info(u'Got response: {code}'.format(code=response.status_code))
+    log.debug(u'Got response headers: {headers}'.format(headers=response.headers))
+    log.debug(u'Got body: {body}'.format(body=response.text))
+
+    return response.text

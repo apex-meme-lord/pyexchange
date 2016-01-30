@@ -1,8 +1,22 @@
 class ExchangeMessageBody(object):
 
-  def __init__(self, content, type_=None):
-    self.content = content
-    self.type = type_
+  def __init__(self, text=None, html=None, xml=None):
+    if text is not None:
+      self.content = text
+      self._type = u'Text'
+
+    elif html is not None:
+      self.content = html
+      self._type = u'HTML'
+
+    elif xml is not None:
+      self.content = xml.text
+      print(xml.text, xml.attrib)
+      self._type = xml.attrib['BodyType']
+
+  @property
+  def type(self):
+      return self._type
 
 
 class ExchangeMailboxTarget(object):
@@ -13,27 +27,27 @@ class ExchangeMailboxTarget(object):
 
   _type = None
 
-  def __init__(self, xml=None, props=None):
-    if xml:
+  def __init__(self, xml=None, **kwargs):
+    if xml is not None:
       self._init_from_xml(xml)
-    if props:
-      self._init_from_props(props)
+    else:
+      self._init_from_props(**kwargs)
 
   def _init_from_xml(self, xml):
     raise NotImplementedError
 
-  def _init_from_props(self, props):
+  def _init_from_props(self, **kwargs):
     raise NotImplementedError
 
 
 class ExchangeMailboxTargetList(object):
 
-  def __init__(self, xml):
+  def __init__(self, xml=None):
 
     self._mailboxes = []
     
-    for mailbox in xml.getchildren():
-      self._parse_mailbox_from_xml(mailbox)
+    if xml is not None:
+      self._parse_mailbox_from_xml(xml)
 
   def _parse_mailbox_from_xml(self, xml):
     raise NotImplementedError
@@ -245,27 +259,17 @@ class BaseExchangeMessage(object):
   @property
   def body(self):
     """Lazy-loaded message body"""
-    if self._body is None and self.id:
+    if self._body is None and self.id is not None:
       self._fetch_message_body()
     return self._body
 
   @body.setter
   def body(self, value):
     if isinstance(value, str):
-      self._body = ExchangeMessageBody(value, u'Text')
+      self._body = ExchangeMessageBody(text=value)
     elif hasattr(value, 'text') and hasattr(value, 'attrib'):
       # duck-typing magic
-      self._body = ExchangeMessageBody(value.text, value.attrib['BodyType'])
-
-  @property
-  def to_recipients(self):
-    return self._to_recipients
-
-  @to_recipients.setter
-  def to_recipients(self, value):
-    self._to_recipients = value 
-
-  
+      self._body = ExchangeMessageBody(xml=value)
 
   # @property
   # def mime_content(self):

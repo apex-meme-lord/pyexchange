@@ -6,7 +6,7 @@ Unless required by applicable law or agreed to in writing, software?distributed 
 """
 import logging
 from .exchange2010 import Exchange2010Service  # noqa
-from .connection import ExchangeNTLMAuthConnection  # noqa
+from .connection import ExchangeNTLMAuthConnection, ExchangeBasicAuthConnection  # noqa
 
 # Silence notification of no default logging handler
 log = logging.getLogger("pyexchange")
