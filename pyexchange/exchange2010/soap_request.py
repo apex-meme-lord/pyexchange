@@ -134,7 +134,7 @@ def get_folder_items(format=u'Default', folder_id=u'root', delegate_for=None):
         )
       )
   else:
-    target = M.ParentFolderIds(T.FolderId(Id=calendar_id))
+    target = M.ParentFolderIds(T.FolderId(Id=folder_id))
 
   root = M.FindItem(
     {u'Traversal': u'Shallow'},
@@ -170,7 +170,7 @@ def get_calendar_items(format=u"Default", calendar_id=u'calendar', start=None, e
   return base
 
 
-def get_message_items(format=u'AllProperties', folder_id=u'root', offset=0, base_point=u'Beginning', max_entries=999999, delegate_for=None):
+def get_message_items(folder_id=u'root', offset=0, base_point=u'Beginning', max_entries=999999, delegate_for=None, format=u'AllProperties'):
   """
   Fetches message items from the specified folder.  Response body will include
   the current offset, total, and a boolean indicating completion.
@@ -475,33 +475,33 @@ def new_event(event):
 
 
 def delete_event(event):
-    """
+  """
 
-    Requests an item be deleted from the store.
+  Requests an item be deleted from the store.
 
 
-    <DeleteItem
-        xmlns="http://schemas.microsoft.com/exchange/services/2006/messages"
-        xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
-        DeleteType="HardDelete"
-        SendMeetingCancellations="SendToAllAndSaveCopy"
-        AffectedTaskOccurrences="AllOccurrences">
-            <ItemIds>
-                <t:ItemId Id="{{ id }}" ChangeKey="{{ change_key }}"/>
-            </ItemIds>
-    </DeleteItem>
+  <DeleteItem
+      xmlns="http://schemas.microsoft.com/exchange/services/2006/messages"
+      xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+      DeleteType="HardDelete"
+      SendMeetingCancellations="SendToAllAndSaveCopy"
+      AffectedTaskOccurrences="AllOccurrences">
+          <ItemIds>
+              <t:ItemId Id="{{ id }}" ChangeKey="{{ change_key }}"/>
+          </ItemIds>
+  </DeleteItem>
 
-    """
-    root = M.DeleteItem(
-      M.ItemIds(
-        T.ItemId(Id=event.id, ChangeKey=event.change_key)
-      ),
-      DeleteType="HardDelete",
-      SendMeetingCancellations="SendToAllAndSaveCopy",
-      AffectedTaskOccurrences="AllOccurrences"
-    )
+  """
+  root = M.DeleteItem(
+    M.ItemIds(
+      T.ItemId(Id=event.id, ChangeKey=event.change_key)
+    ),
+    DeleteType="HardDelete",
+    SendMeetingCancellations="SendToAllAndSaveCopy",
+    AffectedTaskOccurrences="AllOccurrences"
+  )
 
-    return root
+  return root
 
 
 def get_message(exchange_id, format=u'AllProperties'):
@@ -548,6 +548,32 @@ def create_message(message):
 
 
 def delete_message(message):
+  """
+
+  Requests an item be deleted from the store.
+
+
+  <DeleteItem
+      xmlns="http://schemas.microsoft.com/exchange/services/2006/messages"
+      xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+      DeleteType="HardDelete"
+          <ItemIds>
+              <t:ItemId Id="{{ id }}" ChangeKey="{{ change_key }}"/>
+          </ItemIds>
+  </DeleteItem>
+
+  """
+  root = M.DeleteItem(
+    M.ItemIds(
+      T.ItemId(Id=event.id, ChangeKey=event.change_key)
+    ),
+    DeleteType="HardDelete",
+  )
+
+  return root
+
+
+def update_message(message):
   pass
 
 

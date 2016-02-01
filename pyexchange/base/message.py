@@ -11,7 +11,6 @@ class ExchangeMessageBody(object):
 
     elif xml is not None:
       self.content = xml.text
-      print(xml.text, xml.attrib)
       self._type = xml.attrib['BodyType']
 
   @property
@@ -51,6 +50,9 @@ class ExchangeMailboxTargetList(object):
 
   def _parse_mailbox_from_xml(self, xml):
     raise NotImplementedError
+
+  def __repr__(self):
+    return repr(self._mailboxes)
 
   def __len__(self):
     return len(self._mailboxes)
@@ -166,18 +168,23 @@ class BaseExchangeMessage(object):
   display_to = None
   has_attachments = None
   culture = None
-  sender = None
   is_read_receipt_requested = None
   conversation_index = None
   conversation_topic = None
-  from_ = None
   internet_message_id = None
   is_read = None
 
   _response_objects = None
+  
   _to_recipients = None
+  _cc_recipients = None
+  _reply_to = None
+  _from_ = None
+  _sender = None
+
   _attachments = None
   _internet_message_headers = None
+  
   _body = None
 
   _track_dirty_attributes = False
@@ -254,8 +261,9 @@ class BaseExchangeMessage(object):
 
   @item_class.setter
   def item_class(self, value):
-    self._item_class = value
-  
+    if self._item_class is None:
+      self._item_class = value
+
   @property
   def body(self):
     """Lazy-loaded message body"""
@@ -270,10 +278,6 @@ class BaseExchangeMessage(object):
     elif hasattr(value, 'text') and hasattr(value, 'attrib'):
       # duck-typing magic
       self._body = ExchangeMessageBody(xml=value)
-
-  # @property
-  # def mime_content(self):
-  #   return self._mime_content
 
   def add_file_attachment(self, fully_qualified_filepath=None, new_filename=None, byte_array=None, input_stream=None):
     raise NotImplementedError
