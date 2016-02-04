@@ -18,37 +18,19 @@ class ExchangeMessageBody(object):
       return self._type
 
 
-class ExchangeMailboxTarget(object):
-
-  name = None
-  email_address = None
-  routing_type = None
-
-  _type = None
-
-  def __init__(self, xml=None, **kwargs):
-    if xml is not None:
-      self._init_from_xml(xml)
-    else:
-      self._init_from_props(**kwargs)
-
-  def _init_from_xml(self, xml):
-    raise NotImplementedError
-
-  def _init_from_props(self, **kwargs):
-    raise NotImplementedError
-
-
 class ExchangeMailboxTargetList(object):
 
-  def __init__(self, xml=None):
-
+  def __init__(self, service, xml=None):
+    self.service = service
     self._mailboxes = []
     
     if xml is not None:
       self._parse_mailbox_from_xml(xml)
 
   def _parse_mailbox_from_xml(self, xml):
+    raise NotImplementedError
+
+  def _add_mailbox(self, **kwargs):
     raise NotImplementedError
 
   def __repr__(self):
@@ -75,6 +57,108 @@ class ExchangeMailboxTargetList(object):
   def __contains__(self, item):
     return self._mailboxes.__contains__(item)
 
+  def append(self, *args, **kwargs):
+    return self._messages._add_mailbox(*args, **kwargs)
+
+  def pop(self, *args, **kwargs):
+    return self._messages.pop(*args, **kwargs)
+
+
+class ExchangeMailboxTarget(object):
+
+  name = None
+  email_address = None
+  routing_type = None
+  mailbox_type = None
+
+  _type = None
+
+  def __init__(self, service, xml=None, **kwargs):
+    self.service = service
+
+    if xml is not None:
+      self._init_from_xml(xml)
+    else:
+      self._init_from_props(**kwargs)
+
+  def _init_from_xml(self, xml):
+    raise NotImplementedError
+
+  def _init_from_props(self, **kwargs):
+    raise NotImplementedError
+
+
+class ExchangeAttachmentList(object):
+  
+  def __init__(self, service, xml=None):
+    self.service = service
+    self._attachments = []
+
+    if xml is not None:
+      self._parse_attachments_from_xml(xml)
+
+  def _parse_attachments_from_xml(self, xml):
+    raise NotImplementedError
+
+  def _add_attachment(self, **kwargs):
+    raise NotImplementedError
+
+  def __repr__(self):
+    return repr(self._attachments)
+
+  def __len__(self):
+    return len(self._attachments)
+
+  def __getitem__(self, key):
+    return self._attachments[key]
+
+  def __setitem__(self, key, value):
+    self._attachments[key] = value
+
+  def __delitem__(self, key):
+    del self._attachments[key]
+
+  def __iter__(self):
+    return self._attachments.__iter__()
+
+  def __reversed__(self):
+    return self._attachments.__reversed__()
+
+  def __contains__(self, item):
+    return self._attachments.__contains__(item)
+
+  def append(self, *args, **kwargs):
+    return self._attachments._add_attachment(*args, **kwargs)
+
+  def pop(self, *args, **kwargs):
+    return self._attachments.pop(*args, **kwargs)
+
+
+class ExchangeAttachment(object):
+
+  _content = None
+  _content_type = None
+
+  def __init__(self, service, id=None, xml=None):
+    self.service = service
+
+    if xml is not None:
+      self._init_from_xml(xml)
+    elif id is not None:
+      self._init_from_service(id)
+
+  def _init_from_xml(self, xml):
+    raise NotImplementedError
+
+  def _init_from_service(self, id):
+    raise NotImplementedError
+
+  def _init_from_filepath(self, name, filepath):
+    raise NotImplementedError
+
+  def _init_from_props(self, name, content):
+    raise NotImplementedError
+
 
 class BaseExchangeMessageService(object):
 
@@ -100,7 +184,6 @@ class BaseExchangeMessageList(object):
 
     response = self._fetch_message_items(folder_id, delegate_for, **kwargs)
     self._parse_response_for_list_or_get_messages(response)
-
 
   def _fetch_message_items(self, folder_id, delegate_for):
     raise NotImplementedError
@@ -133,10 +216,7 @@ class BaseExchangeMessageList(object):
     return self._messages.__contains__(item)
 
   def append(self, *args, **kwargs):
-    return self._messages.append(*args, **kwargs)
-
-  def insert(self, *args, **kwargs):
-    return self._messages.insert(*args, **kwargs)
+    return self._messages._add_message(*args, **kwargs)
 
   def pop(self, *args, **kwargs):
     return self._messages.pop(*args, **kwargs)
@@ -190,7 +270,7 @@ class BaseExchangeMessage(object):
   _track_dirty_attributes = False
   _dirty_attributes = set()
 
-  def __init__(self, service, id=None, xml=None, **kwargs):
+  def __init__(self, service, id=None, xml=None, mime=None, folder_id=None, character_set=u'UTF-8', **kwargs):
 
     self.service = service
 
@@ -198,6 +278,10 @@ class BaseExchangeMessage(object):
       self._init_from_xml(xml)
     elif id is not None:
       self._init_from_service(id)
+    elif mime is not None:
+      if folder_id is None:
+        raise ValueError('Creating an Exchange message from MIME requires a folder id and character set encoding')
+      self._init_from_mime_content(mime, folder_id, character_set)
     else:
       self._update_properties(kwargs)
 
@@ -206,6 +290,9 @@ class BaseExchangeMessage(object):
     raise NotImplementedError
 
   def _init_from_service(self, id):
+    raise NotImplementedError
+
+  def _init_from_mime_content(self, mime):
     raise NotImplementedError
 
   def create(self):

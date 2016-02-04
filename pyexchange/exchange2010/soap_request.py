@@ -519,10 +519,7 @@ def get_message(exchange_id, format=u'AllProperties'):
   return base
 
 
-def create_message(message):
-  folder_id = (T.DistinguishedFolderId(Id=message.parent_folder_id) if message.parent_folder_id in DISTINGUISHED_IDS
-               else T.FolderId(Id=message.parent_folder_id))
-
+def new_message_template(message):
   to_recipient_mailboxes = [
     T.Mailbox(
       T.EmailAddress(mailbox.email_address)
@@ -530,20 +527,83 @@ def create_message(message):
     for mailbox in message.to_recipients
   ]
 
+  cc_recipient_mailboxes = [
+    T.Mailbox(
+      T.EmailAddress(mailbox.email_address)
+    )
+    for mailbox in message.cc_recipients
+  ]
+
+  from_mailboxes = [
+    T.Mailbox(
+      T.EmailAddress(mailbox.email_address)
+    )
+    for mailbox in message.from_
+  ]
+
+
+  if message.body is not None:
+    body = (message.body.content, message.body.type) 
+  else:
+    body = (u'', u'Text')
+
+  root = T.Message(
+    T.Subject(message.subject or u''),
+    T.Body(body[0], BodyType=body[1]),
+    T.ToRecipients(
+      *to_recipient_mailboxes
+    ),
+    T.CcRecipients(
+      *cc_recipient_mailboxes
+    ),
+    T.From(
+      *from_mailboxes
+    ),
+    T.IsRead(str(message.is_read).lower())
+  )
+  return root
+
+
+def new_message_save_only(message):
+  folder_id = (T.DistinguishedFolderId(Id=message.parent_folder_id) if message.parent_folder_id in DISTINGUISHED_IDS
+               else T.FolderId(Id=message.parent_folder_id))
+  template = new_message_template(message)  
   root = M.CreateItem(
     M.SavedItemFolderId(folder_id),
+    M.Items(template)
+  )
+  root.attrib['MessageDisposition'] = 'SaveOnly'
+  return root
+
+
+def new_message_send_and_save_copy(message, folder_id=u'sentitems'):
+  id = (T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS
+               else T.FolderId(Id=folder_id))
+  template = new_message_template(message)  
+  root = M.CreateItem(
+    M.SavedItemFolderId(id),
+    M.Items(template)
+  )
+  root.attrib['MessageDisposition'] = 'SendAndSaveCopy'
+  return root
+
+
+def new_message_from_mime(mime_content, folder_id=u'drafts', character_set=u'UTF-8'):
+  id = (T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS
+        else T.FolderId(Id=folder_id))
+
+  root = M.CreateItem(
+    M.SavedItemFolderId(id),
     M.Items(
       T.Message(
-        T.Subject(message.subject or u''),
-        T.Body(message.body.content or u'', BodyType=message.body.type),
-        T.ToRecipients(
-          *to_recipient_mailboxes
-        ),
-        T.IsRead(str(message.is_read).lower())
+        T.MimeContent(
+          mime_content,
+          CharacterSet=character_set
+        )
       )
-    ),
-    MessageDisposition='SaveOnly'
+    )
   )
+
   return root
 
 
@@ -565,7 +625,7 @@ def delete_message(message):
   """
   root = M.DeleteItem(
     M.ItemIds(
-      T.ItemId(Id=event.id, ChangeKey=event.change_key)
+      T.ItemId(Id=message.id, ChangeKey=message.change_key)
     ),
     DeleteType="HardDelete",
   )
@@ -573,8 +633,52 @@ def delete_message(message):
   return root
 
 
-def update_message(message):
-  pass
+def copy_message(message, folder_id):
+  root = M.CopyItem(
+    M.ToFolderId(
+      T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS
+      else T.FolderId(Id=folder_id)
+    ),
+    M.ItemIds(
+      T.ItemId(Id=message.id, ChangeKey=message.change_key)
+    )
+  )
+
+  return root
+
+
+def copy_messages(messages, folder_id):
+  ids = [T.ItemId(Id=message.id, ChangeKey=message.change_key) for message in messages]
+
+  root = M.CopyItem(
+    M.ToFolderId(
+      T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS
+      else T.FolderId(Id=folder_id)
+    ),
+    M.ItemIds(
+      *ids
+    )
+  )
+
+  return root
+
+
+def send_message(message):
+  root = M.SendItem(
+    M.ItemIds(
+      T.ItemId(Id=message.id, ChangeKey=message.change_key)
+    )
+  )
+
+
+def send_messages(message):
+  ids = [T.ItemId(Id=message.id, ChangeKey=message.change_key) for message in messages]
+
+  root = M.SendItem(
+    M.ItemIds(
+      *ids
+    )
+  )
 
 
 def get_attachment(attachment_id):
@@ -586,6 +690,19 @@ def get_attachment(attachment_id):
     M.AttachmentIds(
       T.AttachmentId(
         {'Id': attachment_id}
+      )
+    )
+  )
+  return root
+
+
+def new_attachment(item, name, content):
+  root = M.CreateAttachment(
+    M.ParentItemId(Id=item.id),
+    M.Attachments(
+      T.FileAttachment(
+        T.Name(name),
+        T.Content(content)
       )
     )
   )
@@ -608,8 +725,22 @@ def move_event(event, folder_id):
   return move_item(event, folder_id)
 
 
-def move_folder(folder, folder_id):
+def move_items(items, folder_id): 
+  ids = [T.ItemId(Id=item.id, ChangeKey=item.change_key) for item in items]
 
+  root = M.MoveItem(
+    M.ToFolderId(
+      T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS
+      else T.FolderId(Id=folder_id)
+    ),
+    M.ItemIds(
+      *ids    
+    )
+  )
+  return root
+
+
+def move_folder(folder, folder_id):
   id = T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS else T.FolderId(Id=folder_id)
 
   root = M.MoveFolder(
