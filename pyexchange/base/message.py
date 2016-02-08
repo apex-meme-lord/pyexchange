@@ -20,12 +20,14 @@ class ExchangeMessageBody(object):
 
 class ExchangeMailboxTargetList(object):
 
-  def __init__(self, service, xml=None):
+  def __init__(self, service, xml=None, email_list=None):
     self.service = service
     self._mailboxes = []
     
     if xml is not None:
       self._parse_mailbox_from_xml(xml)
+    elif email_list is not None:
+      self._parse_mailbox_from_list(email_list)
 
   def _parse_mailbox_from_xml(self, xml):
     raise NotImplementedError

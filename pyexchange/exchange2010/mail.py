@@ -13,6 +13,8 @@ from . import soap_request
 
 log = logging.getLogger('pyexchange')
 
+SEQUENCE_TYPES = (list, set, tuple, frozenset)
+
 
 class Exchange2010MessageService(BaseExchangeMessageService):
 
@@ -61,6 +63,12 @@ class Exchange2010MailboxTargetList(ExchangeMailboxTargetList):
   def _parse_mailbox_from_xml(self, xml):
     for mailbox in xml.getchildren():
       self._add_mailbox(xml=mailbox)
+
+    return self
+
+  def _parse_mailbox_from_list(self, email_list):
+    for email in email_list:
+      self._add_mailbox(name=email, email_address=email)
 
     return self
 
@@ -258,7 +266,10 @@ class Exchange2010Message(BaseExchangeMessage):
     return self.service._xpath_to_dict(element=xml, property_map=property_map, namespace_map=soap_request.NAMESPACES)
 
   def create(self):
+    self.validate()
+
     request = soap_request.new_message_save_only(message=self)
+    self.request = request
     response = self.service.send(request)
 
     message = response.xpath('//m:CreateItemResponseMessage/m:Items/t:Message', namespaces=soap_request.NAMESPACES)[0]
@@ -271,7 +282,22 @@ class Exchange2010Message(BaseExchangeMessage):
     response = self.service.send(request)
 
   def validate(self):
-    pass
+    if self.to_recipients is None:
+      self.to_recipients = []
+
+    if self.cc_recipients is None:
+      self.cc_recipients = []
+
+    if self.from_ is None:
+      raise Exception('Creating a message requires a from_ mailbox target.')
+
+    if self.body is None:
+      self.body = u''
+
+    if self.is_read is None:
+      self.is_read = False
+
+    return self
 
   def send(self):
     request = soap_request.send_message(message=self)
@@ -305,62 +331,86 @@ class Exchange2010Message(BaseExchangeMessage):
 
   @property
   def to_recipients(self):
-    if self._to_recipients is None and self.id:
-      message = self._fetch_message_from_service(self.id)
-      self.to_recipients = self._parse_to_recipients(message)
+    if self._to_recipients is None:
+      if self.id is None:
+        self.to_recipients = []
+      else:    
+        message = self._fetch_message_from_service(self.id)
+        self.to_recipients = self._parse_to_recipients(message)
  
     return self._to_recipients
 
   @to_recipients.setter
   def to_recipients(self, value):
+    if isinstance(value, SEQUENCE_TYPES):
+      self._to_recipients = Exchange2010MailboxTargetList(service=self.service, email_list=value)
+    else:
       self._to_recipients = Exchange2010MailboxTargetList(service=self.service, xml=value)
 
   @property
   def cc_recipients(self):
-    if self._cc_recipients is None and self.id:
-      message = self._fetch_message_from_service(self.id)
-      self.cc_recipients = self._parse_cc_recipients(message)
+    if self._cc_recipients is None:
+      if self.id is None:
+        self.cc_recipients = []
+      else:
+        message = self._fetch_message_from_service(self.id)
+        self.cc_recipients = self._parse_cc_recipients(message)
 
     return self._cc_recipients
 
   @cc_recipients.setter
   def cc_recipients(self, value):
+    if isinstance(value, SEQUENCE_TYPES):
+      self._cc_recipients = Exchange2010MailboxTargetList(service=self.service, email_list=value)
+    else:
       self._cc_recipients = Exchange2010MailboxTargetList(service=self.service, xml=value)
 
   @property
   def reply_to(self):
-    if self._reply_to is None and self.id:
-      message = self._fetch_message_from_service(self.id)
-      self.reply_to = self._parse_reply_to(message)
+    if self._reply_to is None:
+      if self.id is None:
+        self.reply_to = []
+      else:
+        message = self._fetch_message_from_service(self.id)
+        self.reply_to = self._parse_reply_to(message)
 
     return self._reply_to
 
   @reply_to.setter
   def reply_to(self, value):
-      self._reply_to = Exchange2010MailboxTargetList(service=self.service, xml=value)
+    self._reply_to = Exchange2010MailboxTargetList(service=self.service, xml=value)
 
   @property
   def sender(self):
-    if self._sender is None and self.id:
-      message = self._fetch_message_from_service(self.id)
-      self.sender = self._parse_sender(message)
+    if self._sender is None:
+      if self.id is None:
+        self.sender = []
+      else:
+        message = self._fetch_message_from_service(self.id)
+        self.sender = self._parse_sender(message)
 
     return self._sender
 
   @sender.setter
   def sender(self, value):
-      self._sender = Exchange2010MailboxTargetList(service=self.service, xml=value)
+    self._sender = Exchange2010MailboxTargetList(service=self.service, xml=value)
 
   @property
   def from_(self):
-    if self._from_ is None and self.id:
-      message = self._fetch_message_from_service(self.id)
-      self.from_ = self._parse_from(message)
+    if self._from_ is None:
+      if self.id is None:
+        self.from_ = []
+      else:
+        message = self._fetch_message_from_service(self.id)
+        self.from_ = self._parse_from(message)
 
     return self._from_
 
   @from_.setter
   def from_(self, value):
+    if isinstance(value, SEQUENCE_TYPES):
+      self._from_ = Exchange2010MailboxTargetList(service=self.service, email_list=value)
+    else:
       self._from_ = Exchange2010MailboxTargetList(service=self.service, xml=value)
 
   @property
