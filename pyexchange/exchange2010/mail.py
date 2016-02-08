@@ -67,6 +67,7 @@ class Exchange2010MailboxTargetList(ExchangeMailboxTargetList):
   def _add_mailbox(self, **kwargs):
     new_mailbox = Exchange2010MailboxTarget(service=self.service, **kwargs)
     self._mailboxes.append(new_mailbox)
+
     return new_mailbox
 
 
@@ -154,18 +155,19 @@ class Exchange2010Message(BaseExchangeMessage):
   
     message = self._fetch_message_from_service(id)
 
-    self.body = self._parse_body_content_and_type(message)
-    self.to_recipients = self._parse_to_recipients(message)
-    self.cc_recipients = self._parse_cc_recipients(message)
-    self.reply_to = self._parse_reply_to(message)
-    self.attachments = self._parse_attachment(xml)
-
     return self._init_from_xml(message)
 
   def _init_from_xml(self, xml):
     log.debug(u'Creating new Exchange2010 object from XML')
 
+    self.xml = xml
+
     self._id, self._change_key = self._parse_id_and_change_key(xml)
+    self.body = self._parse_body_content_and_type(xml)
+    self.to_recipients = self._parse_to_recipients(xml)
+    self.cc_recipients = self._parse_cc_recipients(xml)
+    self.reply_to = self._parse_reply_to(xml)
+    self.attachments = self._parse_attachments(xml)
     self._parent_folder_id, self._parent_folder_change_key = self._parse_parent_id_and_change_key(xml)
     self.sender = self._parse_sender(xml)
     self.from_ = self._parse_from(xml)
@@ -209,7 +211,6 @@ class Exchange2010Message(BaseExchangeMessage):
     return None, None
 
   def _parse_body_content_and_type(self, xml):
-    self.hehehe = xml
     return self._pop_element(xml, u'./t:Body')
 
   def _parse_to_recipients(self, xml):
@@ -260,10 +261,9 @@ class Exchange2010Message(BaseExchangeMessage):
     request = soap_request.new_message_save_only(message=self)
     response = self.service.send(request)
 
-    for attachment in self.attachments:
-      self.create_attachment(name=attachment.name, content=attachment.content)
+    message = response.xpath('//m:CreateItemResponseMessage/m:Items/t:Message', namespaces=soap_request.NAMESPACES)[0]
+    self._id, self._changekey = self._parse_id_and_change_key(message)
 
-    self.refresh_id_and_change_key()
     return self
 
   def delete(self):
@@ -274,7 +274,7 @@ class Exchange2010Message(BaseExchangeMessage):
     pass
 
   def send(self):
-    request = soap_request.copy_message(message=self)
+    request = soap_request.send_message(message=self)
     response = self.service.send(request)
 
     return self
@@ -404,7 +404,7 @@ class Exchange2010Message(BaseExchangeMessage):
 
   def _fetch_attachments(self):
     message = self._fetch_message_from_service(self.id)
-    return self._parse_attachment(message)
+    return self._parse_attachments(message)
 
 
 class Exchange2010MessageList(BaseExchangeMessageList):

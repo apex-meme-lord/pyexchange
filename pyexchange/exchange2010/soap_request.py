@@ -541,7 +541,6 @@ def new_message_template(message):
     for mailbox in message.from_
   ]
 
-
   if message.body is not None:
     body = (message.body.content, message.body.type) 
   else:
@@ -559,7 +558,7 @@ def new_message_template(message):
     T.From(
       *from_mailboxes
     ),
-    T.IsRead(str(message.is_read).lower())
+    T.IsRead(str(message.is_read).lower()),
   )
   return root
 
@@ -572,7 +571,7 @@ def new_message_save_only(message):
     M.SavedItemFolderId(folder_id),
     M.Items(template)
   )
-  root.attrib['MessageDisposition'] = 'SaveOnly'
+  root.attrib[u'MessageDisposition'] = u'SaveOnly'
   return root
 
 
@@ -584,7 +583,7 @@ def new_message_send_and_save_copy(message, folder_id=u'sentitems'):
     M.SavedItemFolderId(id),
     M.Items(template)
   )
-  root.attrib['MessageDisposition'] = 'SendAndSaveCopy'
+  root.attrib[u'MessageDisposition'] = u'SendAndSaveCopy'
   return root
 
 

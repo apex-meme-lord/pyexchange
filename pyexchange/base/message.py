@@ -355,7 +355,7 @@ class BaseExchangeMessage(object):
   def body(self):
     """Lazy-loaded message body"""
     if self._body is None and self.id is not None:
-      self._fetch_message_body()
+      self.body = self._fetch_message_body()
     return self._body
 
   @body.setter
@@ -365,6 +365,8 @@ class BaseExchangeMessage(object):
     elif hasattr(value, 'text') and hasattr(value, 'attrib'):
       # duck-typing magic
       self._body = ExchangeMessageBody(xml=value)
+    else:
+      self._body = ExchangeMessageBody(text=u'')
 
   def add_file_attachment(self, fully_qualified_filepath=None, new_filename=None, byte_array=None, input_stream=None):
     raise NotImplementedError
