@@ -116,17 +116,20 @@ def get_item(exchange_id, format=u"Default"):
   )
   return root
 
-def get_calendar_items(format=u"Default", calendar_id=u'calendar', start=None, end=None, max_entries=999999, delegate_for=None):
-  start = start.strftime(EXCHANGE_DATETIME_FORMAT)
-  end = end.strftime(EXCHANGE_DATETIME_FORMAT)
 
-  if calendar_id == u'calendar':
+def get_folder_items(format=u'Default', folder_id=u'root', delegate_for=None):
+  """
+  Helper function for fetching items of a generic folder.  Can be extended with
+  additional parameters for more robust searching.
+
+  """
+  if folder_id in DISTINGUISHED_IDS:
     if delegate_for is None:
-      target = M.ParentFolderIds(T.DistinguishedFolderId(Id=calendar_id))
+      target = M.ParentFolderIds(T.DistinguishedFolderId(Id=folder_id))
     else:
       target = M.ParentFolderIds(
         T.DistinguishedFolderId(
-          {'Id': 'calendar'},
+          {'Id': folder_id},
           T.Mailbox(T.EmailAddress(delegate_for))
         )
       )
@@ -138,14 +141,31 @@ def get_calendar_items(format=u"Default", calendar_id=u'calendar', start=None, e
     M.ItemShape(
       T.BaseShape(format)
     ),
+    target
+  )
+
+  return root
+
+
+def get_calendar_items(format=u"Default", calendar_id=u'calendar', start=None, end=None, max_entries=999999, delegate_for=None):
+  """
+  Fetches items from the calendar folder.  Extends the default body with
+  a CalendarView container for the result set.
+
+  """
+
+  start = start.strftime(EXCHANGE_DATETIME_FORMAT)
+  end = end.strftime(EXCHANGE_DATETIME_FORMAT)
+
+  base = get_folder_items(format, calendar_id, delegate_for)
+  base.insert(
+    -1,
     M.CalendarView({
       u'MaxEntriesReturned': _unicode(max_entries),
       u'StartDate': start,
       u'EndDate': end,
     }),
-    target,
   )
-
 
   return base
 
@@ -694,7 +714,7 @@ def move_item(item, folder_id):
   root = M.MoveItem(
     M.ToFolderId(id),
     M.ItemIds(
-        T.ItemId(Id=event.id, ChangeKey=event.change_key)
+        T.ItemId(Id=item.id, ChangeKey=item.change_key)
     )
   )
   return root
