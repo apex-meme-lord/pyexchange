@@ -282,6 +282,9 @@ class Exchange2010Message(BaseExchangeMessage):
     response = self.service.send(request)
 
   def validate(self):
+    if self.parent_folder_id is None:
+      self.parent_folder_id = u'drafts'
+
     if self.to_recipients is None:
       self.to_recipients = []
 
