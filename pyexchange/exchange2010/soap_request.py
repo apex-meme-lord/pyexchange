@@ -116,20 +116,17 @@ def get_item(exchange_id, format=u"Default"):
   )
   return root
 
+def get_calendar_items(format=u"Default", calendar_id=u'calendar', start=None, end=None, max_entries=999999, delegate_for=None):
+  start = start.strftime(EXCHANGE_DATETIME_FORMAT)
+  end = end.strftime(EXCHANGE_DATETIME_FORMAT)
 
-def get_folder_items(format=u'Default', folder_id=u'root', delegate_for=None):
-  """
-  Helper function for fetching items of a generic folder.  Can be extended with
-  additional parameters for more robust searching.
-
-  """
-  if folder_id in DISTINGUISHED_IDS:
+  if calendar_id == u'calendar':
     if delegate_for is None:
-      target = M.ParentFolderIds(T.DistinguishedFolderId(Id=folder_id))
+      target = M.ParentFolderIds(T.DistinguishedFolderId(Id=calendar_id))
     else:
       target = M.ParentFolderIds(
         T.DistinguishedFolderId(
-          {'Id': folder_id},
+          {'Id': 'calendar'},
           T.Mailbox(T.EmailAddress(delegate_for))
         )
       )
@@ -141,32 +138,15 @@ def get_folder_items(format=u'Default', folder_id=u'root', delegate_for=None):
     M.ItemShape(
       T.BaseShape(format)
     ),
-    target
-  )
-
-  return root
-
-
-def get_calendar_items(format=u"Default", calendar_id=u'calendar', start=None, end=None, max_entries=999999, delegate_for=None):
-  """
-  Fetches items from the calendar folder.  Extends the default body with
-  a CalendarView container for the result set.
-
-  """
-
-  start = start.strftime(EXCHANGE_DATETIME_FORMAT)
-  end = end.strftime(EXCHANGE_DATETIME_FORMAT)
-
-  base = get_folder_items(format, calendar_id, delegate_for)
-  base.insert(
-    -1,
     M.CalendarView({
       u'MaxEntriesReturned': _unicode(max_entries),
       u'StartDate': start,
       u'EndDate': end,
     }),
+    target,
   )
 
+<<<<<<< HEAD
   return base
 
 
@@ -215,6 +195,9 @@ def get_message_items(folder_id=u'root', offset=0, base_point=u'Beginning', max_
   )
 
   return base
+=======
+  return root
+>>>>>>> master
 
 
 def get_master(exchange_id, format=u"Default"):
@@ -504,6 +487,7 @@ def delete_event(event):
   return root
 
 
+<<<<<<< HEAD
 def get_message(exchange_id, format=u'AllProperties'):
   """
   Extends the get_item() request with the attachment ids for
@@ -709,17 +693,22 @@ def new_attachment(item, name, content):
 
 
 def move_item(item, folder_id):
+=======
+def move_event(event, folder_id):
+
+>>>>>>> master
   id = T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS else T.FolderId(Id=folder_id)
 
   root = M.MoveItem(
     M.ToFolderId(id),
     M.ItemIds(
-        T.ItemId(Id=item.id, ChangeKey=item.change_key)
+        T.ItemId(Id=event.id, ChangeKey=event.change_key)
     )
   )
   return root
 
 
+<<<<<<< HEAD
 def move_event(event, folder_id):
   return move_item(event, folder_id)
 
@@ -738,6 +727,9 @@ def move_items(items, folder_id):
   )
   return root
 
+=======
+def move_folder(folder, folder_id):
+>>>>>>> master
 
 def move_folder(folder, folder_id):
   id = T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS else T.FolderId(Id=folder_id)
