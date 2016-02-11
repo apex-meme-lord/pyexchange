@@ -146,7 +146,7 @@ def get_calendar_items(format=u"Default", calendar_id=u'calendar', start=None, e
     target,
   )
 
-<<<<<<< HEAD
+
   return base
 
 
@@ -195,9 +195,6 @@ def get_message_items(folder_id=u'root', offset=0, base_point=u'Beginning', max_
   )
 
   return base
-=======
-  return root
->>>>>>> master
 
 
 def get_master(exchange_id, format=u"Default"):
@@ -487,7 +484,6 @@ def delete_event(event):
   return root
 
 
-<<<<<<< HEAD
 def get_message(exchange_id, format=u'AllProperties'):
   """
   Extends the get_item() request with the attachment ids for
@@ -693,10 +689,6 @@ def new_attachment(item, name, content):
 
 
 def move_item(item, folder_id):
-=======
-def move_event(event, folder_id):
-
->>>>>>> master
   id = T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS else T.FolderId(Id=folder_id)
 
   root = M.MoveItem(
@@ -708,7 +700,6 @@ def move_event(event, folder_id):
   return root
 
 
-<<<<<<< HEAD
 def move_event(event, folder_id):
   return move_item(event, folder_id)
 
@@ -727,9 +718,6 @@ def move_items(items, folder_id):
   )
   return root
 
-=======
-def move_folder(folder, folder_id):
->>>>>>> master
 
 def move_folder(folder, folder_id):
   id = T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS else T.FolderId(Id=folder_id)
