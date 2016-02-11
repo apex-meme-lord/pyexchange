@@ -131,7 +131,7 @@ def get_calendar_items(format=u"Default", calendar_id=u'calendar', start=None, e
         )
       )
   else:
-    target = M.ParentFolderIds(T.FolderId(Id=calendar_id))
+    target = M.ParentFolderIds(T.FolderId(Id=folder_id))
 
   root = M.FindItem(
     {u'Traversal': u'Shallow'},
@@ -146,7 +146,58 @@ def get_calendar_items(format=u"Default", calendar_id=u'calendar', start=None, e
     target,
   )
 
+<<<<<<< HEAD
+  return base
+
+
+def get_message_items(folder_id=u'root', offset=0, base_point=u'Beginning', max_entries=999999, delegate_for=None, format=u'AllProperties'):
+  """
+  Fetches message items from the specified folder.  Response body will include
+  the current offset, total, and a boolean indicating completion.
+
+  """
+  base = get_folder_items(format, folder_id, delegate_for)
+
+  # include message subject
+  base.xpath(u'//m:FindItem/m:ItemShape', namespaces=NAMESPACES)[0].append(
+    T.AdditionalProperties(
+      T.FieldURI({
+        'FieldURI': 'item:Subject'
+      })
+    )
+  )
+
+  # shove into a paged view
+  base.insert(
+    -1,
+    M.IndexedPageItemView({
+      u'MaxEntriesReturned': _unicode(max_entries),
+      u'Offset': _unicode(offset),
+      u'BasePoint': base_point,
+    })
+  )
+
+  # order by importance
+  base.insert(
+    -1,
+    M.GroupBy(
+      {u'Order': 'Ascending'},
+      T.FieldURI(
+        {u'FieldURI': 'item:Importance'}
+      ),
+      T.AggregateOn(
+        {u'Aggregate': 'Maximum'},
+        T.FieldURI({
+          u'FieldURI': 'item:Subject'
+        })
+      )
+    )
+  )
+
+  return base
+=======
   return root
+>>>>>>> master
 
 
 def get_master(exchange_id, format=u"Default"):
@@ -407,37 +458,245 @@ def new_event(event):
 
 
 def delete_event(event):
-    """
+  """
 
-    Requests an item be deleted from the store.
+  Requests an item be deleted from the store.
 
 
-    <DeleteItem
-        xmlns="http://schemas.microsoft.com/exchange/services/2006/messages"
-        xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
-        DeleteType="HardDelete"
-        SendMeetingCancellations="SendToAllAndSaveCopy"
-        AffectedTaskOccurrences="AllOccurrences">
-            <ItemIds>
-                <t:ItemId Id="{{ id }}" ChangeKey="{{ change_key }}"/>
-            </ItemIds>
-    </DeleteItem>
+  <DeleteItem
+      xmlns="http://schemas.microsoft.com/exchange/services/2006/messages"
+      xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+      DeleteType="HardDelete"
+      SendMeetingCancellations="SendToAllAndSaveCopy"
+      AffectedTaskOccurrences="AllOccurrences">
+          <ItemIds>
+              <t:ItemId Id="{{ id }}" ChangeKey="{{ change_key }}"/>
+          </ItemIds>
+  </DeleteItem>
 
-    """
-    root = M.DeleteItem(
-      M.ItemIds(
-        T.ItemId(Id=event.id, ChangeKey=event.change_key)
-      ),
-      DeleteType="HardDelete",
-      SendMeetingCancellations="SendToAllAndSaveCopy",
-      AffectedTaskOccurrences="AllOccurrences"
+  """
+  root = M.DeleteItem(
+    M.ItemIds(
+      T.ItemId(Id=event.id, ChangeKey=event.change_key)
+    ),
+    DeleteType="HardDelete",
+    SendMeetingCancellations="SendToAllAndSaveCopy",
+    AffectedTaskOccurrences="AllOccurrences"
+  )
+
+  return root
+
+
+<<<<<<< HEAD
+def get_message(exchange_id, format=u'AllProperties'):
+  """
+  Extends the get_item() request with the attachment ids for
+  email messages.
+
+  """
+  base = get_item(exchange_id, format)
+  base.xpath(u'//m:GetItem/m:ItemShape', namespaces=NAMESPACES)[0].append(
+    T.AdditionalProperties(
+      T.FieldURI(FieldURI='item:Attachments')
     )
+  )
+  return base
 
-    return root
+
+def new_message_template(message):
+  to_recipient_mailboxes = [
+    T.Mailbox(
+      T.EmailAddress(mailbox.email_address)
+    )
+    for mailbox in message.to_recipients
+  ]
+
+  cc_recipient_mailboxes = [
+    T.Mailbox(
+      T.EmailAddress(mailbox.email_address)
+    )
+    for mailbox in message.cc_recipients
+  ]
+
+  from_mailboxes = [
+    T.Mailbox(
+      T.EmailAddress(mailbox.email_address)
+    )
+    for mailbox in message.from_
+  ]
+
+  if message.body is not None:
+    body = (message.body.content, message.body.type) 
+  else:
+    body = (u'', u'Text')
+
+  root = T.Message(
+    T.Subject(message.subject or u''),
+    T.Body(body[0], BodyType=body[1]),
+    T.ToRecipients(
+      *to_recipient_mailboxes
+    ),
+    T.CcRecipients(
+      *cc_recipient_mailboxes
+    ),
+    T.From(
+      *from_mailboxes
+    ),
+    T.IsRead(str(message.is_read).lower()),
+  )
+  return root
 
 
+def new_message_save_only(message):
+  folder_id = (T.DistinguishedFolderId(Id=message.parent_folder_id) if message.parent_folder_id in DISTINGUISHED_IDS
+               else T.FolderId(Id=message.parent_folder_id))
+  template = new_message_template(message)  
+  root = M.CreateItem(
+    M.SavedItemFolderId(folder_id),
+    M.Items(template)
+  )
+  root.attrib[u'MessageDisposition'] = u'SaveOnly'
+  return root
+
+
+def new_message_send_and_save_copy(message, folder_id=u'sentitems'):
+  id = (T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS
+               else T.FolderId(Id=folder_id))
+  template = new_message_template(message)  
+  root = M.CreateItem(
+    M.SavedItemFolderId(id),
+    M.Items(template)
+  )
+  root.attrib[u'MessageDisposition'] = u'SendAndSaveCopy'
+  return root
+
+
+def new_message_from_mime(mime_content, folder_id=u'drafts', character_set=u'UTF-8'):
+  id = (T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS
+        else T.FolderId(Id=folder_id))
+
+  root = M.CreateItem(
+    M.SavedItemFolderId(id),
+    M.Items(
+      T.Message(
+        T.MimeContent(
+          mime_content,
+          CharacterSet=character_set
+        )
+      )
+    )
+  )
+
+  return root
+
+
+def delete_message(message):
+  """
+
+  Requests an item be deleted from the store.
+
+
+  <DeleteItem
+      xmlns="http://schemas.microsoft.com/exchange/services/2006/messages"
+      xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+      DeleteType="HardDelete"
+          <ItemIds>
+              <t:ItemId Id="{{ id }}" ChangeKey="{{ change_key }}"/>
+          </ItemIds>
+  </DeleteItem>
+
+  """
+  root = M.DeleteItem(
+    M.ItemIds(
+      T.ItemId(Id=message.id, ChangeKey=message.change_key)
+    ),
+    DeleteType="HardDelete",
+  )
+
+  return root
+
+
+def copy_message(message, folder_id):
+  root = M.CopyItem(
+    M.ToFolderId(
+      T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS
+      else T.FolderId(Id=folder_id)
+    ),
+    M.ItemIds(
+      T.ItemId(Id=message.id, ChangeKey=message.change_key)
+    )
+  )
+
+  return root
+
+
+def copy_messages(messages, folder_id):
+  ids = [T.ItemId(Id=message.id, ChangeKey=message.change_key) for message in messages]
+
+  root = M.CopyItem(
+    M.ToFolderId(
+      T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS
+      else T.FolderId(Id=folder_id)
+    ),
+    M.ItemIds(
+      *ids
+    )
+  )
+
+  return root
+
+
+def send_message(message):
+  root = M.SendItem(
+    M.ItemIds(
+      T.ItemId(Id=message.id, ChangeKey=message.change_key)
+    )
+  )
+
+
+def send_messages(message):
+  ids = [T.ItemId(Id=message.id, ChangeKey=message.change_key) for message in messages]
+
+  root = M.SendItem(
+    M.ItemIds(
+      *ids
+    )
+  )
+
+
+def get_attachment(attachment_id):
+  """
+  Fetches the attachment with the given id.
+
+  """
+  root = M.GetAttachment(
+    M.AttachmentIds(
+      T.AttachmentId(
+        {'Id': attachment_id}
+      )
+    )
+  )
+  return root
+
+
+def new_attachment(item, name, content):
+  root = M.CreateAttachment(
+    M.ParentItemId(Id=item.id),
+    M.Attachments(
+      T.FileAttachment(
+        T.Name(name),
+        T.Content(content)
+      )
+    )
+  )
+  return root
+
+
+def move_item(item, folder_id):
+=======
 def move_event(event, folder_id):
 
+>>>>>>> master
   id = T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS else T.FolderId(Id=folder_id)
 
   root = M.MoveItem(
@@ -449,8 +708,30 @@ def move_event(event, folder_id):
   return root
 
 
-def move_folder(folder, folder_id):
+<<<<<<< HEAD
+def move_event(event, folder_id):
+  return move_item(event, folder_id)
 
+
+def move_items(items, folder_id): 
+  ids = [T.ItemId(Id=item.id, ChangeKey=item.change_key) for item in items]
+
+  root = M.MoveItem(
+    M.ToFolderId(
+      T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS
+      else T.FolderId(Id=folder_id)
+    ),
+    M.ItemIds(
+      *ids    
+    )
+  )
+  return root
+
+=======
+def move_folder(folder, folder_id):
+>>>>>>> master
+
+def move_folder(folder, folder_id):
   id = T.DistinguishedFolderId(Id=folder_id) if folder_id in DISTINGUISHED_IDS else T.FolderId(Id=folder_id)
 
   root = M.MoveFolder(
