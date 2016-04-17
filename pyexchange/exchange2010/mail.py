@@ -37,7 +37,7 @@ class Exchange2010MailboxTarget(ExchangeMailboxTarget):
     parsed = self._parse_info_from_mailbox_xml(xml)
     self._init_from_props(**parsed)
 
-  def _init_from_props(self, name, email_address, routing_type=u'SMTP'):
+  def _init_from_props(self, name, email_address="", routing_type=u'SMTP'):
     self.name = name
     self.email_address = email_address
     self.routing_type = routing_type
